@@ -3,13 +3,14 @@ name: Daily Stock Notifier
 on:
   schedule:
     - cron: '0 2 * * 1-5' # 월~금 한국시간 오전 11:00 (UTC 02:00)
-  workflow_dispatch: # 테스트용 수동 실행 버튼
+  workflow_dispatch: # 수동 실행 버튼
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
       
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -18,20 +19,10 @@ jobs:
           
       - name: Install dependencies
         run: |
-          pip install yfinance requests
+          pip install yfinance requests google-auth
           
       - name: Run Notifier
         env:
-          FIREBASE_SERVER_KEY: ${{ secrets.FIREBASE_SERVER_KEY }}
-          FCM_TOKEN: ${{ secrets.FCM_TOKEN }}
-        run: python notifier.py
-        
-        - name: Install dependencies
-        run: |
-          pip install yfinance requests google-auth # google-auth 추가됨
-          
-      - name: Run Notifier
-        env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }} # 이름 변경
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           FCM_TOKEN: ${{ secrets.FCM_TOKEN }}
         run: python notifier.py
