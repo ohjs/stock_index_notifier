@@ -3,7 +3,7 @@ name: Daily Stock Notifier
 on:
   schedule:
     - cron: '0 2 * * 1-5' # 월~금 한국시간 오전 11:00 (UTC 02:00)
-  workflow_dispatch: # 수동 실행 버튼 생성A
+  workflow_dispatch: # 수동 실행 버튼 생성
 
 jobs:
   build:
