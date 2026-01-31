@@ -1,51 +1,53 @@
 import yfinance as yf
 import requests
 import os
+import json
+from google.oauth2 import service_account
+import google.auth.transport.requests
 
 def get_stock_info():
-    # 대상 지수 설정
-    indices = {
-        "KOSPI": "^KS11",
-        "KOSDAQ": "^KQ11",
-        "S&P500": "^GSPC"
-    }
-    
+    indices = {"KOSPI": "^KS11", "KOSDAQ": "^KQ11", "S&P500": "^GSPC"}
     message = "📊 오늘의 주요 지수 (11:00)\n"
     for name, ticker in indices.items():
         data = yf.Ticker(ticker).history(period="2d")
         if len(data) >= 2:
-            current_price = data['Close'].iloc[-1]
-            prev_price = data['Close'].iloc[-2]
-            change = current_price - prev_price
-            change_percent = (change / prev_price) * 100
-            
-            emoji = "🔺" if change > 0 else "🔻"
-            message += f"{name}: {current_price:,.2f} ({emoji}{change_percent:.2f}%)\n"
-    
+            curr = data['Close'].iloc[-1]
+            prev = data['Close'].iloc[-2]
+            diff = curr - prev
+            per = (diff / prev) * 100
+            emoji = "🔺" if diff > 0 else "🔻"
+            message += f"{name}: {curr:,.2f} ({emoji}{per:.2f}%)\n"
     return message
 
-def send_fcm_notification(title, body):
-    # GitHub Secrets에서 가져올 값들
-    server_key = os.environ.get('FIREBASE_SERVER_KEY')
-    token = os.environ.get('FCM_TOKEN')
-    
-    url = 'https://fcm.googleapis.com/fcm/send'
+def send_fcm_v1(title, body):
+    # 1. 서비스 계정 키 설정 (GitHub Secrets에서 가져올 예정)
+    service_account_info = json.loads(os.environ.get('FIREBASE_SERVICE_ACCOUNT'))
+    fcm_token = os.environ.get('FCM_TOKEN')
+    project_id = service_account_info['project_id']
+
+    # 2. 구글 인증 토큰 생성
+    scopes = ['https://www.googleapis.com/auth/cloud-platform']
+    creds = service_account.Credentials.from_service_account_info(service_account_info, scopes=scopes)
+    auth_request = google.auth.transport.requests.Request()
+    creds.refresh(auth_request)
+    access_token = creds.token
+
+    # 3. 알림 전송
+    url = f'https://fcm.googleapis.com/v1/projects/{project_id}/messages:send'
     headers = {
-        'Authorization': f'key={server_key}',
+        'Authorization': f'Bearer {access_token}',
         'Content-Type': 'application/json'
     }
     payload = {
-        'to': token,
-        'notification': {
-            'title': title,
-            'body': body,
-            'sound': 'default'
+        "message": {
+            "token": fcm_token,
+            "notification": {"title": title, "body": body}
         }
     }
-    
+
     response = requests.post(url, json=payload, headers=headers)
-    print(f"Notification Sent: {response.status_code}")
+    print(f"Status: {response.status_code}, Response: {response.text}")
 
 if __name__ == "__main__":
     content = get_stock_info()
-    send_fcm_notification("📈 주식 지수 도착!", content)
+    send_fcm_v1("📈 주식 지수 도착!", content)
